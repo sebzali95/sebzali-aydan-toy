@@ -9,9 +9,14 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://sebzali95.github.io/sebzali-aydan-toy/">
 <meta property="og:image" content="https://sebzali95.github.io/sebzali-aydan-toy/preview.jpg">
+<meta property="og:image:secure_url" content="https://sebzali95.github.io/sebzali-aydan-toy/preview.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="Səbzalı &amp; Aydan">
 <meta property="og:image:width" content="900">
 <meta property="og:image:height" content="900">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://sebzali95.github.io/sebzali-aydan-toy/preview.jpg">
+<link rel="image_src" href="https://sebzali95.github.io/sebzali-aydan-toy/preview.jpg">
 <meta name="theme-color" content="#f6efe3">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}</style>
 <title>Səbzalı &amp; Aydan</title>
@@ -549,7 +554,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     <div class="rsvp-done" id="rsvp-done" hidden>
       <p class="script-title gold-text">Təşəkkür edirik!</p>
       <p id="rsvp-done-text">Cavabınız bizə çatdı.</p>
-      <button type="button" class="link-btn" id="rsvp-again">Yenidən doldur</button>
+      <button type="button" class="link-btn" id="rsvp-again">Fikrinizi dəyişmisiniz? Yenidən göndərin</button>
     </div>
   </section>
 
@@ -674,6 +679,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
   send.addEventListener("click", function (e) {
     if (!ready()) { e.preventDefault(); return; }
     if (SUBMIT_MODE === "prefill") {
+      remember();
       setTimeout(function () { showDone("Açılan səhifədə Göndər düyməsinə basmağı unutmayın."); }, 300);
       return;
     }
@@ -684,6 +690,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     send.textContent = "GÖNDƏRİLİR…";
     fetch(FORM_BASE + "formResponse", { method: "POST", mode: "no-cors", body: params() })
       .then(function () {
+        remember();
         showDone(status.indexOf("Bəli") === 0
           ? "Cavabınız bizə çatdı. Sizi toyumuzda görməyə şad olacağıq!"
           : "Cavabınız bizə çatdı. Bildirdiyiniz üçün sağ olun!");
@@ -695,6 +702,22 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     done.hidden = true;
     form.hidden = false;
   });
+
+  /* one response per device: remember the answer and show it on return */
+  var STORE_KEY = "sebzali-aydan-rsvp";
+  function remember() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({ name: nameInput.value.trim(), status: status, at: Date.now() }));
+    } catch (err) { /* storage unavailable: nothing to remember */ }
+  }
+  (function restore() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch (err) { saved = null; }
+    if (!saved || !saved.name) return;
+    var coming = String(saved.status || "").indexOf("Bəli") === 0;
+    showDone(saved.name + ", cavabınız artıq bizə çatıb"
+      + (coming ? ": iştirak edəcəksiniz. Sizi gözləyirik!" : ": iştirak edə bilməyəcəksiniz. Bildirdiyiniz üçün sağ olun!"));
+  })();
 })();
 </script>
 
