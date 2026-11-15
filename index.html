@@ -7,7 +7,6 @@
 <meta property="og:title" content="Səbzalı &amp; Aydan · Toya dəvət">
 <meta property="og:description" content="20 Dekabr 2026, saat 18:00 · Great Events Hall, Bakı">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://sebzali95.github.io/sebzali-aydan-toy/">
 <meta property="og:image" content="https://sebzali95.github.io/sebzali-aydan-toy/preview.jpg">
 <meta property="og:image:secure_url" content="https://sebzali95.github.io/sebzali-aydan-toy/preview.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -750,6 +749,17 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
       : "#";
   }
   if (guestName && !nameInput.value) nameInput.value = guestName;
+  /* without a personal code the general link must not collect answers */
+  if (SUBMIT_MODE === "post" && SCRIPT_URL.indexOf("https://") === 0 && !guestCode) {
+    form.hidden = true;
+    done.hidden = true;
+    var only = document.createElement("p");
+    only.className = "note";
+    only.style.textAlign = "center";
+    only.style.fontSize = "15px";
+    only.textContent = "Cavab vermək üçün sizə WhatsApp-da göndərilən şəxsi dəvət linkini açın.";
+    form.parentNode.insertBefore(only, form);
+  }
   nameInput.addEventListener("input", refresh);
   wishInput.addEventListener("input", refresh);
 
