@@ -384,11 +384,31 @@ footer { display: grid; gap: 6px; justify-items: center; padding-top: 8px; }
 .music-btn .off { display: none; }
 .music-btn.muted .bars { display: none; } .music-btn.muted .off { display: block; }
 
+/* ---------- petals ---------- */
+.petals { position: fixed; inset: 0; z-index: 35; pointer-events: none; overflow: hidden; }
+.petal { position: absolute; top: -40px; border-radius: 80% 0 80% 0; opacity: 0; will-change: transform, opacity;
+  background: linear-gradient(135deg, #f6e2b3 0%, #dcb978 45%, #b48641 100%); box-shadow: 0 1px 3px rgba(148, 105, 44, .25);
+  animation: petal-fall var(--dur) cubic-bezier(.3, .2, .4, 1) var(--delay) forwards; }
+.petal.soft { background: linear-gradient(135deg, #fffaf0 0%, #f1dfc0 60%, #e2c58f 100%); }
+@keyframes petal-fall {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(var(--r0)); }
+  8% { opacity: .95; }
+  50% { transform: translate3d(var(--sway), 55vh, 0) rotate(calc(var(--r0) + 200deg)); }
+  85% { opacity: .9; }
+  100% { opacity: 0; transform: translate3d(calc(var(--sway) * -0.6), 112vh, 0) rotate(calc(var(--r0) + 420deg)); }
+}
+/* ---------- wishes ---------- */
+.wishes { text-align: left; justify-items: stretch; }
+.wishes .script-title { text-align: center; }
+.wishes textarea.input { min-height: 120px; }
+.wish-count { font-size: 12px; color: var(--muted); text-align: right; margin-top: -8px; font-variant-numeric: tabular-nums; }
+
 .reveal { transition: opacity 1s ease, transform 1s ease; }
 body.locked .reveal { opacity: .0001; transform: translateY(16px); }
 
 @media (prefers-reduced-motion: reduce) {
   .seal, .scroll-hint svg, .music-btn .bars i { animation: none; }
+  .petals { display: none; }
   .intro, .intro-flap, .seal, .reveal, .pill { transition: none !important; }
 }
 </style>
@@ -585,6 +605,22 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     </div>
   </section>
 
+  <section class="panel wishes reveal" id="wishes" aria-labelledby="h-wish" hidden>
+    <h2 class="script-title gold-text" id="h-wish">Ürək sözləri</h2>
+    <p class="ask">Bizə xoş sözlərinizi yazın</p>
+    <div id="wish-form" class="field" style="gap:14px">
+      <textarea class="input" id="wish-text" maxlength="1000" placeholder="Təbrikinizi yazın..." aria-label="Təbrikiniz"></textarea>
+      <p class="wish-count" id="wish-count">0 / 1000</p>
+      <a class="send" id="wish-send" href="#" role="button" aria-disabled="true">GÖNDƏR</a>
+      <p class="note rsvp-error" id="wish-error" role="alert" hidden>Təbrik göndərilmədi. İnternet bağlantınızı yoxlayıb yenidən cəhd edin.</p>
+    </div>
+    <div class="rsvp-done" id="wish-done" hidden>
+      <p class="script-title gold-text">Sağ olun!</p>
+      <p>Xoş sözləriniz bizə çatdı.</p>
+      <button type="button" class="link-btn" id="wish-again">Daha bir təbrik yazın</button>
+    </div>
+  </section>
+
   <footer class="reveal">
     <svg class="flourish" viewBox="0 0 220 18" aria-hidden="true"><path d="M2 10 C 40 14, 70 6, 100 9 C 104 4, 110 3, 112 8 C 114 13, 106 14, 104 10 C 130 6, 170 13, 218 8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
     <p class="caps">SİZİ GÖZLƏYİRİK</p>
@@ -652,11 +688,33 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     else if (!document.hidden && music.dataset.resume) { delete music.dataset.resume; playMusic(); }
   });
 
+  function petals() {
+    var box = document.createElement("div");
+    box.className = "petals";
+    box.setAttribute("aria-hidden", "true");
+    var w = window.innerWidth || 400, n = w < 600 ? 26 : 40;
+    for (var i = 0; i < n; i++) {
+      var p = document.createElement("span");
+      var size = 9 + Math.random() * 10;
+      p.className = "petal" + (Math.random() < .35 ? " soft" : "");
+      p.style.left = (Math.random() * 100) + "%";
+      p.style.width = size + "px";
+      p.style.height = (size * 1.35) + "px";
+      p.style.setProperty("--dur", (4.2 + Math.random() * 2.6).toFixed(2) + "s");
+      p.style.setProperty("--delay", (Math.random() * 1.6).toFixed(2) + "s");
+      p.style.setProperty("--sway", ((Math.random() * 2 - 1) * 70).toFixed(0) + "px");
+      p.style.setProperty("--r0", (Math.random() * 360).toFixed(0) + "deg");
+      box.appendChild(p);
+    }
+    document.body.appendChild(box);
+    setTimeout(function () { if (box.parentNode) box.parentNode.removeChild(box); }, 9000);
+  }
   function openIntro() {
     if (intro.classList.contains("opening")) return;
     playMusic();
     musicBtn.classList.add("show");
     intro.classList.add("opening");
+    if (!reduce) petals();
     setTimeout(function () {
       intro.classList.add("open");
       document.body.classList.remove("locked");
@@ -850,6 +908,37 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     var coming = String(saved.status || "").indexOf("Bəli") === 0;
     showDone(saved.name + ", cavabınız artıq bizə çatıb"
       + (coming ? ": iştirak edəcəksiniz. Sizi gözləyirik!" : ": iştirak edə bilməyəcəksiniz. Bildirdiyiniz üçün sağ olun!"));
+  })();
+
+  /* wishes: only on a personal link with the server connected */
+  (function wishes() {
+    var sec = document.getElementById("wishes");
+    if (!useScript || !guestCode) return;
+    sec.hidden = false;
+    var text = document.getElementById("wish-text"), btn = document.getElementById("wish-send");
+    var cnt = document.getElementById("wish-count"), err = document.getElementById("wish-error");
+    var wf = document.getElementById("wish-form"), wd = document.getElementById("wish-done");
+    var busy = false;
+    function upd() {
+      var v = text.value.trim();
+      cnt.textContent = text.value.length + " / 1000";
+      if (v.length > 1) btn.removeAttribute("aria-disabled"); else btn.setAttribute("aria-disabled", "true");
+    }
+    text.addEventListener("input", upd);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      if (busy || text.value.trim().length < 2) return;
+      busy = true; err.hidden = true; btn.textContent = "GÖNDƏRİLİR…";
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ type: "wish", k: guestCode, text: text.value.trim(), device: deviceId() }) })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res && res.ok) { text.value = ""; upd(); wf.hidden = true; wd.hidden = false; }
+          else err.hidden = false;
+        })
+        .catch(function () { err.hidden = false; })
+        .then(function () { busy = false; btn.textContent = "GÖNDƏR"; });
+    });
+    document.getElementById("wish-again").addEventListener("click", function () { wd.hidden = true; wf.hidden = false; text.focus(); });
   })();
 
   /* ask the server whether this invitation is already answered (and from which device) */
