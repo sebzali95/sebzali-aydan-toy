@@ -333,6 +333,11 @@ textarea.input { min-height: 96px; resize: vertical; line-height: 1.5; }
 }
 .opt[aria-checked="true"] { background: rgba(232, 205, 150, .55); border-color: var(--gold-light); font-weight: 500; }
 .opt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.ask { margin: 0; font-family: var(--font-text); font-size: 18px; line-height: 1.45; color: var(--ink); text-align: center; text-wrap: balance; }
+.ask b { font-weight: 600; }
+.yesno { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.yesno .opt { text-align: center; font-size: 19px; font-family: var(--font-num); letter-spacing: .04em; min-height: 74px; display: grid; place-content: center; gap: 2px; }
+.yesno .opt small { font-family: var(--font-text); font-size: 12.5px; letter-spacing: 0; color: var(--muted); font-weight: 400; }
 .counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .counts .opt { text-align: center; font-family: var(--font-num); font-size: 18px; }
 .send {
@@ -541,15 +546,17 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     <h2 class="script-title gold-text" id="h-rsvp">Təsdiqləmə</h2>
 
     <div id="rsvp-form" class="field" style="gap:18px">
-      <label class="field" for="rsvp-name">
+      <label class="field" id="name-block" for="rsvp-name">
         <span class="field-label">AD VƏ SOYAD</span>
         <input class="input" id="rsvp-name" type="text" autocomplete="name" placeholder="Adınızı daxil edin">
       </label>
 
       <div class="field" role="radiogroup" aria-labelledby="lbl-status">
-        <span class="field-label" id="lbl-status">İŞTİRAK STATUSU</span>
-        <button type="button" class="opt status" role="radio" aria-checked="false" data-value="Bəli, gələcəyəm">İştirak edəcəyəm</button>
-        <button type="button" class="opt status" role="radio" aria-checked="false" data-value="Təəssüf ki, gələ bilməyəcəyəm">Təəssüf ki, iştirak edə bilməyəcəyəm</button>
+        <p class="ask" id="lbl-status">Toyumuzda iştirak edəcəksinizmi?</p>
+        <div class="yesno">
+          <button type="button" class="opt status" role="radio" aria-checked="false" data-value="Bəli, gələcəyəm">Bəli<small>gələcəyəm</small></button>
+          <button type="button" class="opt status" role="radio" aria-checked="false" data-value="Təəssüf ki, gələ bilməyəcəyəm">Xeyr<small>gələ bilməyəcəyəm</small></button>
+        </div>
       </div>
 
       <div class="field" id="count-block" role="radiogroup" aria-labelledby="lbl-count">
@@ -700,6 +707,14 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
   var status = "", count = "", sending = false;
 
   document.getElementById("count-block").hidden = !COUNT_FIELD;
+  if (guestName) {
+    document.getElementById("name-block").hidden = true;
+    var ask = document.getElementById("lbl-status");
+    ask.textContent = "";
+    var ab = document.createElement("b"); ab.textContent = guestName; ask.appendChild(ab);
+    ask.appendChild(document.createTextNode(", toyumuzda iştirak edəcəksinizmi?"));
+    hint.textContent = "Cavabınızı seçib göndərin.";
+  }
   document.getElementById("wish-block").hidden = !WISH_FIELD;
 
   function group(selector, set) {
