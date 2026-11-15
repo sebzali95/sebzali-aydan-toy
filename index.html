@@ -580,7 +580,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     </div>
 
     <div class="rsvp-done" id="rsvp-done" hidden>
-      <p class="script-title gold-text">Təşəkkür edirik!</p>
+      <p class="script-title gold-text" id="rsvp-done-title">Təşəkkür edirik!</p>
       <p id="rsvp-done-text">Cavabınız bizə çatdı.</p>
       <button type="button" class="link-btn" id="rsvp-again">Fikrinizi dəyişmisiniz? Yenidən göndərin</button>
     </div>
@@ -599,6 +599,8 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
 (function () {
   /* "prefill" opens the Google Form with answers filled in; "post" sends silently (works outside Claude) */
   var SUBMIT_MODE = "post";
+  /* Apps Script web app: one invitation code = one device. Empty = old Google Form path. */
+  var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzjFpUOjdVdqnEWPsm_-DkE1OrkL2yAyW822zwX50R2w3pURFA1mNGRNhb_LfanNTX2/exec";
   var FORM_BASE = "https://docs.google.com/forms/d/e/1FAIpQLSeYqmZbpQL7nvl7D-DhIdKa0f5OxxAO8vHX1tACRA-_FipN6Q/";
   var NAME_FIELD = "entry.559352220";
   var STATUS_FIELD = "entry.877086558";
@@ -751,10 +753,38 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
   nameInput.addEventListener("input", refresh);
   wishInput.addEventListener("input", refresh);
 
+  var doneTitle = document.getElementById("rsvp-done-title");
+  var againBtn = document.getElementById("rsvp-again");
+  var useScript = SUBMIT_MODE === "post" && SCRIPT_URL.indexOf("https://") === 0;
   function showDone(msg) {
+    doneTitle.textContent = "Təşəkkür edirik!";
+    againBtn.hidden = false;
     doneText.textContent = msg;
     form.hidden = true;
     done.hidden = false;
+  }
+  function showBlocked(msg) {
+    doneTitle.textContent = "Diqqət";
+    againBtn.hidden = true;
+    doneText.textContent = msg;
+    form.hidden = true;
+    done.hidden = false;
+  }
+  var TAKEN_MSG = "Bu dəvətnamə artıq başqa cihazdan cavablandırılıb. Səhv olduğunu düşünürsünüzsə, Səbzalı ilə əlaqə saxlayın.";
+  var INVALID_MSG = "Bu dəvət linki düzgün deyil. Zəhmət olmasa, sizə göndərilən linki yenidən açın.";
+  function deviceId() {
+    var id = "";
+    try { id = localStorage.getItem("sebzali-aydan-device") || ""; } catch (err) {}
+    if (!id) {
+      id = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      try { localStorage.setItem("sebzali-aydan-device", id); } catch (err) {}
+    }
+    return id;
+  }
+  function thanks(st) {
+    return st.indexOf("Bəli") === 0
+      ? "Cavabınız bizə çatdı. Sizi toyumuzda görməyə şad olacağıq!"
+      : "Cavabınız bizə çatdı. Bildirdiyiniz üçün sağ olun!";
   }
   send.addEventListener("click", function (e) {
     if (!ready()) { e.preventDefault(); return; }
@@ -768,6 +798,19 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     sending = true;
     errorBox.hidden = true;
     send.textContent = "GÖNDƏRİLİR…";
+    if (useScript) {
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ k: guestCode, name: nameInput.value.trim(), status: status, device: deviceId() }) })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res && res.ok) { remember(); showDone(thanks(status)); }
+          else if (res && res.reason === "taken") showBlocked(TAKEN_MSG);
+          else if (res && res.reason === "invalid") showBlocked(INVALID_MSG);
+          else errorBox.hidden = false;
+        })
+        .catch(function () { errorBox.hidden = false; })
+        .then(function () { sending = false; send.textContent = "GÖNDƏR"; });
+      return;
+    }
     fetch(FORM_BASE + "formResponse", { method: "POST", mode: "no-cors", body: params() })
       .then(function () {
         remember();
@@ -784,7 +827,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
   });
 
   /* one response per device: remember the answer and show it on return */
-  var STORE_KEY = "sebzali-aydan-rsvp";
+  var STORE_KEY = "sebzali-aydan-rsvp" + (guestCode ? "-" + guestCode : "");
   function remember() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({ name: nameInput.value.trim(), status: status, at: Date.now() }));
@@ -798,6 +841,25 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     showDone(saved.name + ", cavabınız artıq bizə çatıb"
       + (coming ? ": iştirak edəcəksiniz. Sizi gözləyirik!" : ": iştirak edə bilməyəcəksiniz. Bildirdiyiniz üçün sağ olun!"));
   })();
+
+  /* ask the server whether this invitation is already answered (and from which device) */
+  if (useScript && guestCode) {
+    fetch(SCRIPT_URL + "?k=" + encodeURIComponent(guestCode) + "&d=" + encodeURIComponent(deviceId()))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res) return;
+        if (res.ok === false && res.reason === "invalid") { showBlocked(INVALID_MSG); return; }
+        if (res.state === "taken") { showBlocked(TAKEN_MSG); return; }
+        if (res.state === "mine") {
+          var coming = String(res.status || "").indexOf("Bəli") === 0;
+          showDone((guestName || "Hörmətli qonaq") + ", cavabınız artıq bizə çatıb"
+            + (coming ? ": iştirak edəcəksiniz. Sizi gözləyirik!" : ": iştirak edə bilməyəcəksiniz. Bildirdiyiniz üçün sağ olun!"));
+          return;
+        }
+        if (res.state === "free") { done.hidden = true; form.hidden = false; }
+      })
+      .catch(function () { /* offline: keep the local view */ });
+  }
 })();
 </script>
 
