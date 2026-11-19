@@ -397,6 +397,20 @@ footer { display: grid; gap: 6px; justify-items: center; padding-top: 8px; }
   85% { opacity: .9; }
   100% { opacity: 0; transform: translate3d(calc(var(--sway) * -0.6), 112vh, 0) rotate(calc(var(--r0) + 420deg)); }
 }
+/* ---------- scratch card ---------- */
+.scratch { display: grid; gap: 16px; justify-items: center; text-align: center; }
+.scratch-box { position: relative; width: 100%; min-height: 150px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(250,240,222,.75)); border: 1px solid var(--panel-line);
+  display: grid; place-items: center; padding: 26px 18px; }
+.scratch-msg { margin: 0; font-family: var(--font-text); font-size: 19px; line-height: 1.6; color: var(--ink); text-wrap: balance; }
+.scratch-msg b { font-weight: 600; }
+.scratch-msg .heart { color: var(--gold); }
+.scratch-cover { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; transition: opacity .9s ease; }
+.scratch-cover.gone { opacity: 0; pointer-events: none; }
+.scratch-skip { position: absolute; left: 0; right: 0; bottom: 10px; margin: auto; width: max-content; background: none; border: 0;
+  font-family: var(--font-text); font-size: 12px; letter-spacing: .06em; color: rgba(90, 64, 26, .75); cursor: pointer; pointer-events: auto; }
+.scratch-skip[hidden] { display: none; }
+
 /* ---------- wishes ---------- */
 .wishes { text-align: left; justify-items: stretch; }
 .wishes .script-title { text-align: center; }
@@ -605,19 +619,10 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     </div>
   </section>
 
-  <section class="panel wishes reveal" id="wishes" aria-labelledby="h-wish" hidden>
-    <h2 class="script-title gold-text" id="h-wish">Ürək sözləri</h2>
-    <p class="ask">Bizə xoş sözlərinizi yazın</p>
-    <div id="wish-form" class="field" style="gap:14px">
-      <textarea class="input" id="wish-text" maxlength="1000" placeholder="Təbrikinizi yazın..." aria-label="Təbrikiniz"></textarea>
-      <p class="wish-count" id="wish-count">0 / 1000</p>
-      <a class="send" id="wish-send" href="#" role="button" aria-disabled="true">GÖNDƏR</a>
-      <p class="note rsvp-error" id="wish-error" role="alert" hidden>Təbrik göndərilmədi. İnternet bağlantınızı yoxlayıb yenidən cəhd edin.</p>
-    </div>
-    <div class="rsvp-done" id="wish-done" hidden>
-      <p class="script-title gold-text">Sağ olun!</p>
-      <p>Xoş sözləriniz bizə çatdı.</p>
-      <button type="button" class="link-btn" id="wish-again">Daha bir təbrik yazın</button>
+  <section class="panel scratch reveal" aria-labelledby="h-scratch">
+    <h2 class="script-title gold-text" id="h-scratch">Sizə bir sözümüz var</h2>
+    <div class="scratch-box" id="scratch-box">
+      <p class="scratch-msg" id="scratch-msg">Siz bizim üçün çox əzizsiniz.<br>O gün sizi yanımızda görmək istəyirik <span class="heart">♡</span></p>
     </div>
   </section>
 
@@ -919,10 +924,24 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
       + (coming ? ": iştirak edəcəksiniz. Sizi gözləyirik!" : ": iştirak edə bilməyəcəksiniz. Bildirdiyiniz üçün sağ olun!"));
   })();
 
+  /* closing personal line at the end (no interaction, just text) */
+  (function scratchCard() {
+    var msg = document.getElementById("scratch-msg");
+    if (!msg) return;
+    if (guestName) {
+      msg.textContent = "";
+      var b = document.createElement("b"); b.textContent = guestName; msg.appendChild(b);
+      msg.appendChild(document.createTextNode(", siz bizim üçün çox əzizsiniz."));
+      msg.appendChild(document.createElement("br"));
+      msg.appendChild(document.createTextNode("O gün sizi yanımızda görmək istəyirik "));
+      var h = document.createElement("span"); h.className = "heart"; h.textContent = "♡"; msg.appendChild(h);
+    }
+  })();
+
   /* wishes: only on a personal link with the server connected */
   (function wishes() {
     var sec = document.getElementById("wishes");
-    if (!useScript || !guestCode || PREVIEW) return;
+    if (!sec || !useScript || !guestCode || PREVIEW) return;
     sec.hidden = false;
     var text = document.getElementById("wish-text"), btn = document.getElementById("wish-send");
     var cnt = document.getElementById("wish-count"), err = document.getElementById("wish-error");
