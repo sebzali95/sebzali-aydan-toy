@@ -838,7 +838,16 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     form.hidden = true;
     done.hidden = false;
   }
-  var TAKEN_MSG = "Bu dəvətnamə artıq başqa cihazdan cavablandırılıb. Səhv olduğunu düşünürsünüzsə, Səbzalı ilə əlaqə saxlayın.";
+  var TAKEN_MSG = "Bu dəvət linki sizə Səbzalı tərəfindən göndərilməyib. Ona görə burada cavab vermək və təbrik yazmaq mümkün deyil. Bu sizin dəvətinizdirsə, linki ilk açdığınız telefondan açın və ya Səbzalı ilə əlaqə saxlayın.";
+  var PREVIEW = (function () { try { return new URLSearchParams(location.search).get("p") === "1"; } catch (err) { return false; } })();
+  function fingerprint() {
+    var src = [navigator.userAgent, screen.width + "x" + screen.height, window.devicePixelRatio || 1,
+      (Intl.DateTimeFormat().resolvedOptions().timeZone || ""), navigator.language || "", navigator.hardwareConcurrency || ""].join("|");
+    var h = 2166136261;
+    for (var i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(36);
+  }
+  function hideWishes() { var w = document.getElementById("wishes"); if (w) w.hidden = true; }
   var INVALID_MSG = "Bu dəvət linki düzgün deyil. Zəhmət olmasa, sizə göndərilən linki yenidən açın.";
   function deviceId() {
     var id = "";
@@ -867,11 +876,11 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     errorBox.hidden = true;
     send.textContent = "GÖNDƏRİLİR…";
     if (useScript) {
-      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ k: guestCode, name: nameInput.value.trim(), status: status, device: deviceId() }) })
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ k: guestCode, name: nameInput.value.trim(), status: status, device: deviceId(), fp: fingerprint() }) })
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (res && res.ok) { remember(); showDone(thanks(status)); }
-          else if (res && res.reason === "taken") showBlocked(TAKEN_MSG);
+          else if (res && res.reason === "taken") { showBlocked(TAKEN_MSG); hideWishes(); }
           else if (res && res.reason === "invalid") showBlocked(INVALID_MSG);
           else errorBox.hidden = false;
         })
@@ -913,7 +922,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
   /* wishes: only on a personal link with the server connected */
   (function wishes() {
     var sec = document.getElementById("wishes");
-    if (!useScript || !guestCode) return;
+    if (!useScript || !guestCode || PREVIEW) return;
     sec.hidden = false;
     var text = document.getElementById("wish-text"), btn = document.getElementById("wish-send");
     var cnt = document.getElementById("wish-count"), err = document.getElementById("wish-error");
@@ -929,10 +938,11 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
       e.preventDefault();
       if (busy || text.value.trim().length < 2) return;
       busy = true; err.hidden = true; btn.textContent = "GÖNDƏRİLİR…";
-      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ type: "wish", k: guestCode, text: text.value.trim(), device: deviceId() }) })
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ type: "wish", k: guestCode, text: text.value.trim(), device: deviceId(), fp: fingerprint() }) })
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (res && res.ok) { text.value = ""; upd(); wf.hidden = true; wd.hidden = false; }
+          else if (res && res.reason === "taken") { sec.hidden = true; showBlocked(TAKEN_MSG); }
           else err.hidden = false;
         })
         .catch(function () { err.hidden = false; })
@@ -943,12 +953,17 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
 
   /* ask the server whether this invitation is already answered (and from which device) */
   if (useScript && guestCode) {
-    fetch(SCRIPT_URL + "?k=" + encodeURIComponent(guestCode) + "&d=" + encodeURIComponent(deviceId()))
+    if (PREVIEW) {
+      showBlocked("Bu, önizləmədir. Qonaq öz linkini açanda burada Bəli/Xeyr seçimləri və təbrik bölməsi görünəcək.");
+      doneTitle.textContent = "Önizləmə";
+    }
+    fetch(SCRIPT_URL + "?k=" + encodeURIComponent(guestCode) + "&d=" + encodeURIComponent(deviceId()) + "&f=" + encodeURIComponent(fingerprint()) + (PREVIEW ? "&p=1" : ""))
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (!res) return;
         if (res.ok === false && res.reason === "invalid") { showBlocked(INVALID_MSG); return; }
-        if (res.state === "taken") { showBlocked(TAKEN_MSG); return; }
+        if (PREVIEW) return;
+        if (res.state === "taken" || res.state === "foreign") { showBlocked(TAKEN_MSG); hideWishes(); return; }
         if (res.state === "mine") {
           var coming = String(res.status || "").indexOf("Bəli") === 0;
           showDone((guestName || "Hörmətli qonaq") + ", cavabınız artıq bizə çatıb"
