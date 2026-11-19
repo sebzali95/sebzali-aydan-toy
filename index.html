@@ -407,9 +407,22 @@ footer { display: grid; gap: 6px; justify-items: center; padding-top: 8px; }
 .scratch-msg .heart { color: var(--gold); }
 .scratch-cover { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; transition: opacity .9s ease; }
 .scratch-cover.gone { opacity: 0; pointer-events: none; }
-.scratch-skip { position: absolute; left: 0; right: 0; bottom: 10px; margin: auto; width: max-content; background: none; border: 0;
-  font-family: var(--font-text); font-size: 12px; letter-spacing: .06em; color: rgba(90, 64, 26, .75); cursor: pointer; pointer-events: auto; }
-.scratch-skip[hidden] { display: none; }
+.scratch-box { touch-action: none; }
+.scratch-hint { margin: -4px 0 0; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-text); font-size: 14px;
+  letter-spacing: .04em; color: var(--gold-deep); transition: opacity .5s ease; }
+.scratch-hint svg { width: 22px; height: 22px; flex: none; }
+.scratch-hint.gone { opacity: 0; }
+.scratch-hand { position: absolute; left: 50%; top: 58%; width: 46px; height: 46px; margin: -23px 0 0 -23px; pointer-events: none;
+  filter: drop-shadow(0 3px 6px rgba(90, 60, 20, .35)); animation: hand-swipe 2.4s ease-in-out infinite; transition: opacity .4s ease; }
+.scratch-hand.gone { opacity: 0; animation: none; }
+@keyframes hand-swipe {
+  0% { transform: translate(-70px, 6px) rotate(-12deg); opacity: 0; }
+  12% { opacity: 1; }
+  45% { transform: translate(70px, -6px) rotate(8deg); }
+  70% { transform: translate(-40px, 10px) rotate(-6deg); opacity: 1; }
+  100% { transform: translate(-70px, 6px) rotate(-12deg); opacity: 0; }
+}
+
 
 /* ---------- wishes ---------- */
 .wishes { text-align: left; justify-items: stretch; }
@@ -423,6 +436,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
 @media (prefers-reduced-motion: reduce) {
   .seal, .scroll-hint svg, .music-btn .bars i { animation: none; }
   .petals { display: none; }
+  .scratch-hand { display: none; }
   .intro, .intro-flap, .seal, .reveal, .pill { transition: none !important; }
 }
 </style>
@@ -621,8 +635,11 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
 
   <section class="panel scratch reveal" aria-labelledby="h-scratch">
     <h2 class="script-title gold-text" id="h-scratch">Sizə bir sözümüz var</h2>
+    <p class="scratch-hint" id="scratch-hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12c3-4 5-4 8 0s5 4 8 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M17 8l3 4-3 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Qızılı kartı barmağınızla silin</p>
     <div class="scratch-box" id="scratch-box">
       <p class="scratch-msg" id="scratch-msg">Siz bizim üçün çox əzizsiniz.<br>O gün sizi yanımızda görmək istəyirik <span class="heart">♡</span></p>
+      <canvas class="scratch-cover" id="scratch-cover" aria-hidden="true"></canvas>
+      <svg class="scratch-hand" id="scratch-hand" viewBox="0 0 48 48" aria-hidden="true"><path d="M19 22V9.5a3 3 0 0 1 6 0V21l1-.2V17a3 3 0 0 1 6 0v4.4l.8-.1a3 3 0 0 1 5.2 2V30c0 7.2-5.3 12-12.2 12h-1.6c-4 0-6.8-1.6-9-4.6l-5.7-7.8a3 3 0 0 1 4.6-3.8L19 30z" fill="#fffaf2" stroke="#94692c" stroke-width="1.8" stroke-linejoin="round"/></svg>
     </div>
   </section>
 
@@ -924,18 +941,79 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
       + (coming ? ": iştirak edəcəksiniz. Sizi gözləyirik!" : ": iştirak edə bilməyəcəksiniz. Bildirdiyiniz üçün sağ olun!"));
   })();
 
-  /* closing personal line at the end (no interaction, just text) */
+  /* scratch card at the end: gold foil over a personal line, with a hint so nobody misses it */
   (function scratchCard() {
-    var msg = document.getElementById("scratch-msg");
-    if (!msg) return;
+    var box = document.getElementById("scratch-box"), cv = document.getElementById("scratch-cover");
+    var msg = document.getElementById("scratch-msg"), hint = document.getElementById("scratch-hint"), hand = document.getElementById("scratch-hand");
+    if (!box || !msg) return;
     if (guestName) {
       msg.textContent = "";
-      var b = document.createElement("b"); b.textContent = guestName; msg.appendChild(b);
+      var nb = document.createElement("b"); nb.textContent = guestName; msg.appendChild(nb);
       msg.appendChild(document.createTextNode(", siz bizim üçün çox əzizsiniz."));
       msg.appendChild(document.createElement("br"));
       msg.appendChild(document.createTextNode("O gün sizi yanımızda görmək istəyirik "));
-      var h = document.createElement("span"); h.className = "heart"; h.textContent = "♡"; msg.appendChild(h);
+      var ht = document.createElement("span"); ht.className = "heart"; ht.textContent = "♡"; msg.appendChild(ht);
     }
+    if (!cv || !cv.getContext) { if (cv) cv.remove(); hand.classList.add("gone"); hint.classList.add("gone"); return; }
+    var ctx = cv.getContext("2d"), done = false, drawing = false, last = null, moves = 0, autoT = null;
+    function paint() {
+      var r = box.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+      var g = ctx.createLinearGradient(0, 0, r.width, r.height);
+      g.addColorStop(0, "#f3dca6"); g.addColorStop(.35, "#d9b46a"); g.addColorStop(.6, "#f6e6bf"); g.addColorStop(1, "#b98a3e");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, r.width, r.height);
+      for (var i = 0; i < 280; i++) {
+        ctx.fillStyle = "rgba(255,255,255," + (Math.random() * .4).toFixed(2) + ")";
+        ctx.fillRect(Math.random() * r.width, Math.random() * r.height, 1.3, 1.3);
+      }
+      ctx.strokeStyle = "rgba(255,250,235,.55)"; ctx.lineWidth = 1;
+      ctx.strokeRect(8.5, 8.5, r.width - 17, r.height - 17);
+      ctx.fillStyle = "rgba(90, 60, 20, .82)";
+      ctx.font = "italic 17px Lora, Georgia, serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("Burada sizin üçün bir söz var ✨", r.width / 2, r.height / 2 - 18);
+    }
+    function reveal() {
+      if (done) return; done = true; clearTimeout(autoT);
+      cv.classList.add("gone"); hand.classList.add("gone"); hint.classList.add("gone");
+    }
+    function pos(e) { var r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    function scratchAt(pt) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 36;
+      ctx.beginPath();
+      if (last) { ctx.moveTo(last.x, last.y); ctx.lineTo(pt.x, pt.y); ctx.stroke(); }
+      else { ctx.arc(pt.x, pt.y, 18, 0, Math.PI * 2); ctx.fill(); }
+      last = pt;
+      if (++moves % 10 === 0) check();
+    }
+    function check() {
+      try {
+        var d = ctx.getImageData(0, 0, cv.width, cv.height).data, clear = 0, n = 0;
+        for (var i = 3; i < d.length; i += 64) { n++; if (d[i] < 40) clear++; }
+        if (clear / n > .45) reveal();
+      } catch (err) { reveal(); }
+    }
+    cv.addEventListener("pointerdown", function (e) {
+      if (done) return; drawing = true; last = null; hand.classList.add("gone");
+      try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+      scratchAt(pos(e)); e.preventDefault();
+    });
+    cv.addEventListener("pointermove", function (e) { if (drawing && !done) { scratchAt(pos(e)); e.preventDefault(); } });
+    ["pointerup", "pointercancel"].forEach(function (t) { cv.addEventListener(t, function () { if (drawing) { drawing = false; last = null; check(); } }); });
+    paint();
+    var w0 = box.clientWidth;
+    window.addEventListener("resize", function () { if (!done && box.clientWidth !== w0) { w0 = box.clientWidth; paint(); } });
+    if (reduce) { reveal(); return; }
+    /* nobody scratched: open by itself after a while so the line is never missed */
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting && !autoT && !done) { autoT = setTimeout(reveal, 12000); io.disconnect(); }
+      }, { threshold: .6 });
+      io.observe(box);
+    } else { autoT = setTimeout(reveal, 20000); }
   })();
 
   /* wishes: only on a personal link with the server connected */
