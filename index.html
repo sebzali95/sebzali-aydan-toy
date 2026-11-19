@@ -639,7 +639,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     <h2 class="script-title gold-text" id="h-scratch">Sizə bir sözümüz var</h2>
     <p class="scratch-hint" id="scratch-hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12c3-4 5-4 8 0s5 4 8 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M17 8l3 4-3 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Qızılı kartı barmağınızla silin</p>
     <div class="scratch-box" id="scratch-box">
-      <p class="scratch-msg" id="scratch-msg">Siz bizim üçün çox əzizsiniz.<br>O gün sizi yanımızda görmək istəyirik <span class="heart">♡</span></p>
+      <p class="scratch-msg" id="scratch-msg">Bu sevincli gündə sizin də yanımızda olmağınızı ürəkdən arzulayırıq <span class="heart">♡</span></p>
       <canvas class="scratch-cover" id="scratch-cover" aria-hidden="true"></canvas>
       <svg class="scratch-hand" id="scratch-hand" viewBox="0 0 48 48" aria-hidden="true"><path d="M19 22V9.5a3 3 0 0 1 6 0V21l1-.2V17a3 3 0 0 1 6 0v4.4l.8-.1a3 3 0 0 1 5.2 2V30c0 7.2-5.3 12-12.2 12h-1.6c-4 0-6.8-1.6-9-4.6l-5.7-7.8a3 3 0 0 1 4.6-3.8L19 30z" fill="#fffaf2" stroke="#94692c" stroke-width="1.8" stroke-linejoin="round"/></svg>
     </div>
@@ -957,9 +957,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     if (guestName) {
       msg.textContent = "";
       var nb = document.createElement("b"); nb.textContent = guestName; msg.appendChild(nb);
-      msg.appendChild(document.createTextNode(", siz bizim üçün çox əzizsiniz."));
-      msg.appendChild(document.createElement("br"));
-      msg.appendChild(document.createTextNode("O gün sizi yanımızda görmək istəyirik "));
+      msg.appendChild(document.createTextNode(", bu sevincli gündə sizin də yanımızda olmağınızı ürəkdən arzulayırıq "));
       var ht = document.createElement("span"); ht.className = "heart"; ht.textContent = "♡"; msg.appendChild(ht);
     }
     if (!cv || !cv.getContext) { if (cv) cv.remove(); hand.classList.add("gone"); hint.classList.add("gone"); return; }
