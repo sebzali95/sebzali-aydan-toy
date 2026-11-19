@@ -407,7 +407,8 @@ footer { display: grid; gap: 6px; justify-items: center; padding-top: 8px; }
 .scratch-msg .heart { color: var(--gold); }
 .scratch-cover { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; transition: opacity .9s ease; }
 .scratch-cover.gone { opacity: 0; pointer-events: none; }
-.scratch-box { touch-action: none; }
+.scratch-cover { touch-action: none; }
+.scratch-cover.gone { touch-action: auto; display: none; }
 .scratch-hint { margin: -4px 0 0; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-text); font-size: 14px;
   letter-spacing: .04em; color: var(--gold-deep); transition: opacity .5s ease; }
 .scratch-hint svg { width: 22px; height: 22px; flex: none; }
@@ -415,6 +416,7 @@ footer { display: grid; gap: 6px; justify-items: center; padding-top: 8px; }
 .scratch-hand { position: absolute; left: 50%; top: 58%; width: 46px; height: 46px; margin: -23px 0 0 -23px; pointer-events: none;
   filter: drop-shadow(0 3px 6px rgba(90, 60, 20, .35)); animation: hand-swipe 2.4s ease-in-out infinite; transition: opacity .4s ease; }
 .scratch-hand.gone { opacity: 0; animation: none; }
+.scratch-hand.paused { opacity: 0; }
 @keyframes hand-swipe {
   0% { transform: translate(-70px, 6px) rotate(-12deg); opacity: 0; }
   12% { opacity: 1; }
@@ -898,15 +900,20 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     errorBox.hidden = true;
     send.textContent = "GÖNDƏRİLİR…";
     if (useScript) {
-      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ k: guestCode, name: nameInput.value.trim(), status: status, device: deviceId(), fp: fingerprint() }) })
+      /* optimistic: thank the guest at once, confirm with the server in the background */
+      var sent = status;
+      remember();
+      showDone(thanks(sent));
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ k: guestCode, name: nameInput.value.trim(), status: sent, device: deviceId(), fp: fingerprint() }) })
         .then(function (r) { return r.json(); })
         .then(function (res) {
-          if (res && res.ok) { remember(); showDone(thanks(status)); }
-          else if (res && res.reason === "taken") { showBlocked(TAKEN_MSG); hideWishes(); }
+          if (res && res.ok) return;
+          forget();
+          if (res && res.reason === "taken") { showBlocked(TAKEN_MSG); hideWishes(); }
           else if (res && res.reason === "invalid") showBlocked(INVALID_MSG);
-          else errorBox.hidden = false;
+          else { done.hidden = true; form.hidden = false; errorBox.hidden = false; }
         })
-        .catch(function () { errorBox.hidden = false; })
+        .catch(function () { forget(); done.hidden = true; form.hidden = false; errorBox.hidden = false; })
         .then(function () { sending = false; send.textContent = "GÖNDƏR"; });
       return;
     }
@@ -927,6 +934,7 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
 
   /* one response per device: remember the answer and show it on return */
   var STORE_KEY = "sebzali-aydan-rsvp" + (guestCode ? "-" + guestCode : "");
+  function forget() { try { localStorage.removeItem(STORE_KEY); } catch (err) {} }
   function remember() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({ name: nameInput.value.trim(), status: status, at: Date.now() }));
@@ -977,7 +985,9 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
     }
     function reveal() {
       if (done) return; done = true; clearTimeout(autoT);
-      cv.classList.add("gone"); hand.classList.add("gone"); hint.classList.add("gone");
+      cv.style.opacity = "0"; cv.style.pointerEvents = "none"; box.style.touchAction = "auto";
+      hand.classList.add("gone"); hint.classList.add("gone");
+      setTimeout(function () { cv.classList.add("gone"); }, 900);
     }
     function pos(e) { var r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
     function scratchAt(pt) {
@@ -997,12 +1007,12 @@ body.locked .reveal { opacity: .0001; transform: translateY(16px); }
       } catch (err) { reveal(); }
     }
     cv.addEventListener("pointerdown", function (e) {
-      if (done) return; drawing = true; last = null; hand.classList.add("gone");
+      if (done) return; drawing = true; last = null; hand.classList.add("paused");
       try { cv.setPointerCapture(e.pointerId); } catch (err) {}
       scratchAt(pos(e)); e.preventDefault();
     });
     cv.addEventListener("pointermove", function (e) { if (drawing && !done) { scratchAt(pos(e)); e.preventDefault(); } });
-    ["pointerup", "pointercancel"].forEach(function (t) { cv.addEventListener(t, function () { if (drawing) { drawing = false; last = null; check(); } }); });
+    ["pointerup", "pointercancel"].forEach(function (t) { cv.addEventListener(t, function () { if (drawing) { drawing = false; last = null; hand.classList.remove("paused"); check(); } }); });
     paint();
     var w0 = box.clientWidth;
     window.addEventListener("resize", function () { if (!done && box.clientWidth !== w0) { w0 = box.clientWidth; paint(); } });
